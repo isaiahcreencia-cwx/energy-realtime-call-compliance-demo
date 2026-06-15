@@ -21,6 +21,17 @@ interface CopilotRequestBody {
   previous_copilot_state?: CopilotState | null;
 }
 
+// In-memory cache of successful live responses, keyed by the transcript prefix.
+// The script is deterministic, so once a line has been analysed (e.g. by the
+// client's parallel prefetch) any later request for the same prefix — a real
+// click, a Reset→Start, a duplicate — returns instantly. Only live ("openai")
+// results are cached so a transient mock fallback is never frozen in as truth.
+const liveCache = new Map<string, CopilotApiResponse>();
+
+function cacheKey(transcript: TranscriptLine[]): string {
+  return transcript.map((line) => `${line.timestamp}|${line.speaker}|${line.text}`).join("\n");
+}
+
 export async function POST(request: Request) {
   let body: CopilotRequestBody;
   try {
@@ -58,6 +69,12 @@ export async function POST(request: Request) {
     return NextResponse.json(payload);
   }
 
+  const key = cacheKey(transcript);
+  const cached = liveCache.get(key);
+  if (cached) {
+    return NextResponse.json(cached);
+  }
+
   try {
     const state = await analyzeCallState(
       customerCase,
@@ -67,6 +84,7 @@ export async function POST(request: Request) {
       previousState
     );
     const payload: CopilotApiResponse = { state, source: "openai" };
+    liveCache.set(key, payload);
     return NextResponse.json(payload);
   } catch (err) {
     // Presentation reliability: never fail the demo. Fall back to the

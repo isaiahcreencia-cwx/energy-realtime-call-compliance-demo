@@ -22,10 +22,22 @@ export async function analyzeCallState(
     throw new Error("OPENAI_API_KEY is not configured.");
   }
 
+  // Static reference material (identical on every call) goes in the system
+  // message so OpenAI's automatic prompt caching can reuse the long stable
+  // prefix across all transcript lines — cutting input-processing latency and
+  // cost. Only the per-line transcript and prior state vary.
+  const systemContent = `${SYSTEM_PROMPT}
+
+--- CUSTOMER CASE ---
+${JSON.stringify(customerCase)}
+
+--- COMPLIANCE POLICY ---
+${policy}
+
+--- VICTORIAN HARDSHIP REFERENCE ---
+${victoriaHardshipReference}`;
+
   const payload = {
-    customer_case: customerCase,
-    policy,
-    victoria_hardship_reference: victoriaHardshipReference,
     transcript_so_far: transcriptSoFar,
     previous_copilot_state: previousCopilotState ?? {},
   };
@@ -44,11 +56,15 @@ export async function analyzeCallState(
       },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
+        // Low reasoning effort + terse output keep each call in the ~3-5s range
+        // (vs. 10-15s at the default effort) — essential for a live stage demo.
+        reasoning: { effort: "low" },
         input: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemContent },
           { role: "user", content: JSON.stringify(payload) },
         ],
         text: {
+          verbosity: "low",
           format: {
             type: "json_schema",
             name: "copilot_update",

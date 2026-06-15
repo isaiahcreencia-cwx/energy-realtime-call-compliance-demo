@@ -31,29 +31,48 @@ export default function Page() {
   const stateRef = useRef({ transcriptIndex, pending, copilotState });
   stateRef.current = { transcriptIndex, pending, copilotState };
 
+  // One in-flight/resolved request per line index, so parallel prefetch and a
+  // real click for the same line share a single call. Cleared on Reset.
+  const requestsRef = useRef(new Map<number, Promise<CopilotApiResponse>>());
+
   const transcriptSoFar = transcriptLines.slice(0, transcriptIndex);
   const callFinished = transcriptIndex >= transcriptLines.length;
 
+  // Fetch (or reuse) the analysis for the transcript prefix of `index` lines.
+  // Each line is analysed independently from the full prefix, so prefetch and a
+  // later real click resolve to the same promise. previous_copilot_state is
+  // null because parallel warming has no prior outputs to chain from.
+  const getOrFetch = useCallback((index: number): Promise<CopilotApiResponse> => {
+    const existing = requestsRef.current.get(index);
+    if (existing) return existing;
+    const promise = (async () => {
+      const response = await fetch("/api/copilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript_so_far: transcriptLines.slice(0, index),
+          previous_copilot_state: null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Copilot service returned HTTP ${response.status}.`);
+      }
+      return (await response.json()) as CopilotApiResponse;
+    })().catch((err) => {
+      // Drop the failed entry so a retry re-fetches instead of replaying the error.
+      requestsRef.current.delete(index);
+      throw err;
+    });
+    requestsRef.current.set(index, promise);
+    return promise;
+  }, []);
+
   const analyze = useCallback(
-    async (
-      nextIndex: number,
-      previousState: CopilotState | null
-    ): Promise<void> => {
+    async (nextIndex: number): Promise<void> => {
       setPending(true);
       setLastError(null);
       try {
-        const response = await fetch("/api/copilot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transcript_so_far: transcriptLines.slice(0, nextIndex),
-            previous_copilot_state: previousState,
-          }),
-        });
-        if (!response.ok) {
-          throw new Error(`Copilot service returned HTTP ${response.status}.`);
-        }
-        const data = (await response.json()) as CopilotApiResponse;
+        const data = await getOrFetch(nextIndex);
         setCopilotState(data.state);
         setSource(data.source);
         setFallbackNote(data.fallback_note ?? null);
@@ -67,16 +86,15 @@ export default function Page() {
         setPending(false);
       }
     },
-    []
+    [getOrFetch]
   );
 
   const advanceOneLine = useCallback(() => {
-    const { transcriptIndex: idx, pending: busy, copilotState: prev } =
-      stateRef.current;
+    const { transcriptIndex: idx, pending: busy } = stateRef.current;
     if (busy || idx >= transcriptLines.length) return;
     const nextIndex = idx + 1;
     setTranscriptIndex(nextIndex);
-    void analyze(nextIndex, prev);
+    void analyze(nextIndex);
   }, [analyze]);
 
   // Auto-play loop: advance after REFRESH_SECONDS whenever running and idle.
@@ -96,6 +114,14 @@ export default function Page() {
 
   const startDemo = () => {
     setIsRunning(true);
+    // Warm every remaining line in parallel so advancing reads a ready result.
+    // Each call is genuinely live; they just complete a few seconds before the
+    // presenter clicks. Fire-and-forget — getOrFetch dedupes against real reads.
+    for (let i = stateRef.current.transcriptIndex + 1; i <= transcriptLines.length; i++) {
+      void getOrFetch(i).catch(() => {
+        /* surfaced later if/when this line is actually displayed */
+      });
+    }
     if (stateRef.current.transcriptIndex === 0 && !stateRef.current.pending) {
       advanceOneLine();
     }
@@ -103,6 +129,7 @@ export default function Page() {
 
   const reset = () => {
     setIsRunning(false);
+    requestsRef.current.clear();
     setTranscriptIndex(0);
     setCopilotState(null);
     setPending(false);
