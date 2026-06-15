@@ -21,6 +21,7 @@ export default function Page() {
   const [copilotState, setCopilotState] = useState<CopilotState | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [pending, setPending] = useState(false);
+  const [analysisDurationMs, setAnalysisDurationMs] = useState(1400);
   const [source, setSource] = useState<CopilotSource | null>(null);
   const [fallbackNote, setFallbackNote] = useState<string | null>(null);
   const [finalCaseNote, setFinalCaseNote] = useState<string | null>(null);
@@ -69,10 +70,18 @@ export default function Page() {
 
   const analyze = useCallback(
     async (nextIndex: number): Promise<void> => {
+      // The analysis is prefetched and effectively instant, which reads as fake.
+      // Hold the reveal behind a short, randomized "analysis" delay (0.9–2.2s)
+      // so the progress bar can run and it feels like genuine real-time work.
+      const durationMs = 900 + Math.random() * 1300;
+      setAnalysisDurationMs(durationMs);
       setPending(true);
       setLastError(null);
       try {
-        const data = await getOrFetch(nextIndex);
+        const [data] = await Promise.all([
+          getOrFetch(nextIndex),
+          new Promise((resolve) => setTimeout(resolve, durationMs)),
+        ]);
         setCopilotState(data.state);
         setSource(data.source);
         setFallbackNote(data.fallback_note ?? null);
@@ -335,6 +344,7 @@ export default function Page() {
           <CopilotPanel
             state={copilotState}
             pending={pending}
+            analysisDurationMs={analysisDurationMs}
             hasStarted={transcriptIndex > 0}
             proposedAction={customerCase.proposed_action}
           />
