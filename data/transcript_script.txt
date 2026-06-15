@@ -1,0 +1,13 @@
+00:00|Agent|Hi Sarah, this is Daniel calling from SUPA Energy. Before we continue, can I confirm your full name and date of birth?
+00:09|Customer|Sure. Sarah Mitchell, 14 May 1987.
+00:17|Agent|Thanks Sarah. I am calling about your overdue balance of AUD 420 on your Victorian electricity account.
+00:27|Customer|Yes, I know. I have been meaning to sort it out.
+00:35|Agent|We need to discuss payment today to avoid further action on the account.
+00:44|Customer|I understand. Things have just been difficult lately.
+00:53|Agent|Are you able to make a payment today?
+01:00|Customer|No, not really. I lost my job last month and I am struggling to pay rent.
+01:12|Agent|I am sorry to hear that. I want to make sure we handle this properly. Are you experiencing financial hardship at the moment?
+01:24|Customer|Yes, I think so. I do not know when I will have income again.
+01:35|Agent|Thanks for telling me. I am going to pause any collections action and check what payment support and relief grant options may be available.
+01:46|Customer|Thank you. I was worried the electricity would just get cut off.
+01:56|Agent|I will record that you have disclosed hardship, and I will refer this to our support team so they can talk through payment assistance and Utility Relief Grant options with you.
