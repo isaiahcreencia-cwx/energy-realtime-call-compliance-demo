@@ -534,6 +534,48 @@ button {
   }
 }
 
+/* Per-line analysis progress bar */
+.copilot-progress {
+  height: 3px;
+  width: 100%;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  margin: 2px 0 12px;
+}
+
+.copilot-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--supa-green), #7dd3a8);
+  animation-name: analysis-progress;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: forwards;
+}
+
+@keyframes analysis-progress {
+  0% {
+    width: 0;
+  }
+  90% {
+    width: 92%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.copilot-body {
+  transition: opacity 220ms ease, filter 220ms ease;
+}
+
+.copilot-body--analysing {
+  opacity: 0.5;
+  filter: saturate(0.85);
+  pointer-events: none;
+}
+
 /* Decision badge */
 .decision-badge {
   display: flex;

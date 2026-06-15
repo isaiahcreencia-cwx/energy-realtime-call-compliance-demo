@@ -12,11 +12,13 @@ const DECISION_LABEL: Record<CopilotState["compliance_decision"], string> = {
 export function CopilotPanel({
   state,
   pending,
+  analysisDurationMs,
   hasStarted,
   proposedAction,
 }: {
   state: CopilotState | null;
   pending: boolean;
+  analysisDurationMs: number;
   hasStarted: boolean;
   proposedAction: string;
 }) {
@@ -34,6 +36,21 @@ export function CopilotPanel({
         </span>
       </div>
 
+      {pending && (
+        <div
+          className="copilot-progress"
+          role="progressbar"
+          aria-label="Analysing latest line"
+        >
+          <div
+            key={analysisDurationMs}
+            className="copilot-progress-fill"
+            style={{ animationDuration: `${analysisDurationMs}ms` }}
+          />
+        </div>
+      )}
+
+      <div className={`copilot-body${pending ? " copilot-body--analysing" : ""}`}>
       {!state && !hasStarted ? (
         <div className="copilot-idle">
           The copilot activates as soon as the call starts. It listens to every
@@ -212,6 +229,7 @@ export function CopilotPanel({
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }
